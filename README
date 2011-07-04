@@ -1,0 +1,4 @@
+Usage: miniserv [PATH] [[HOST:]PORT]
+    path defaults to ./
+    host defaults to 127.0.0.1
+    port defaults to 8000
