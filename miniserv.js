@@ -51,8 +51,7 @@ if(isNaN(port)) {
     process.exit();
 }
 
-console.log("Serving files from " + path + " over " + ip + ":" + port);
-
+// A few basic extensions in case we don't have a mime.types
 var extensions = {
     html: "text/html",
     txt: "text/plain",
@@ -62,6 +61,28 @@ var extensions = {
     css: "text/css",
     js: "text/javascript"
 };
+
+// Work out where we're running from
+var myDir = process.argv[1].replace(/[^\/]+$/, "");
+try {
+    var data = fs.readFileSync(myDir + "mime.types");
+    if(data) {
+        console.log("Importing mime types");
+        data.toString("utf8").split(/\n/).forEach(function(m) {
+            var match = /^([^\s]+)\s+(.*)$/.exec(m);
+
+            if(match) {
+                match[2].split(/\s+/).forEach(function(e) {
+                    extensions[e] = match[1];
+                });
+            }
+        });
+    }
+} catch(e) {
+    // Actually, we don't care
+}
+
+console.log("Serving files from " + path + " over " + ip + ":" + port);
 
 var server = http.createServer(function(request, response) {
     var file = request.url.replace(/^[\/\.]+/, path).replace(/\.\.\//g, "");
@@ -93,4 +114,5 @@ var server = http.createServer(function(request, response) {
 try {
     server.listen(port, ip);
 } catch(e) {
+    console.log("Couldn't start miniserv: " + e.message);
 }
