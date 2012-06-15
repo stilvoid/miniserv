@@ -1,7 +1,8 @@
-var http = require("http");
-var fs = require("fs");
+var path = require("path");
 
-var path = "./";
+var nosef = require("nosef");
+
+var dir = "./";
 var ip = "127.0.0.1";
 var port = 8000;
 
@@ -22,14 +23,14 @@ if(process.argv.length == 3) {
         if(/^[\w\.]+(:\d+)?$/.test(process.argv[2])) {
             host = process.argv[2];
         } else {
-            path = process.argv[2];
+            dir = process.argv[2];
         }
     } else {
         // It's a number, probably a port
         port = process.argv[2];
     }
 } else if(process.argv.length == 4) {
-    path = process.argv[2];
+    dir = process.argv[2];
     host = process.argv[3];
 }
 
@@ -51,68 +52,20 @@ if(isNaN(port)) {
     process.exit();
 }
 
-// A few basic extensions in case we don't have a mime.types
-var extensions = {
-    html: "text/html",
-    txt: "text/plain",
-    json: "application/json",
-    png: "image/png",
-    jpg: "image/jpeg",
-    css: "text/css",
-    js: "text/javascript"
+var config = {
+    port: port,
+    address: host,
+    middleware: function(request, response) {
+        console.log(request.url);
+    },
+    urls: [ // An array of arrays mapping URL patterns to handler functions
+        ["/", nosef.handlers.file(path.join(dir, "index.html"))],
+        ["/{{path}}", nosef.handlers.file(dir, "path")]
+    ]
 };
 
-// Work out where we're running from
-var myDir = process.argv[1].replace(/[^\/]+$/, "");
-try {
-    var data = fs.readFileSync(myDir + "mime.types");
-    if(data) {
-        console.log("Importing mime types");
-        data.toString("utf8").split(/\n/).forEach(function(m) {
-            var match = /^([^\s]+)\s+(.*)$/.exec(m);
+var server = nosef.server(config);
 
-            if(match) {
-                match[2].split(/\s+/).forEach(function(e) {
-                    extensions[e] = match[1];
-                });
-            }
-        });
-    }
-} catch(e) {
-    // Actually, we don't care
-}
-
-console.log("Serving files from " + path + " over " + ip + ":" + port);
-
-var server = http.createServer(function(request, response) {
-    var file = request.url.replace(/^[\/\.]+/, path).replace(/\.\.\//g, "");
-    var extension = file.replace(/^.+\.([^\.]+)$/, "$1").toLowerCase();
-
-    if(file == path) {
-        file = path + "/index.html";
-    }
-
-    console.log(file);
-
-    fs.readFile(file, function(err, data) {
-        if(err) {
-            response.writeHead(404);
-            response.end();
-        } else {
-            var headers = {};
-            if(extensions[extension]) {
-                headers["Content-Type"] = extensions[extension];
-            }
-            headers["Content-Length"] = data.length;
-
-            response.writeHead(200, headers);
-            response.end(data);
-        }
-    });
+server.on("start", function() {
+    console.log("Serving files from " + dir + " over " + ip + ":" + port);
 });
-
-try {
-    server.listen(port, ip);
-} catch(e) {
-    console.log("Couldn't start miniserv: " + e.message);
-}
